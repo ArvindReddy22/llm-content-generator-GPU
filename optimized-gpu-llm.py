@@ -24,21 +24,17 @@ class BlogGeneratorApp:
         )
         self.local_css()
         self.model_path = "vosk-model-small-en-us-0.15" 
-        # Path to Vosk model
         self.q = queue.Queue()
-        
-        # Initialize session state
+    
         if "recognized_text" not in st.session_state:
             st.session_state["recognized_text"] = ""
-            
-        # Check for GPU availability and memory
+        
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         if self.device == "cuda":
             gpu_name = torch.cuda.get_device_name(0)
             gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # Convert to GB
             st.sidebar.success(f"✅ GPU detected: {gpu_name} ({gpu_memory:.2f} GB)")
             
-            # Check if likely a low VRAM GPU
             if gpu_memory < 6:
                 st.sidebar.info("🔧 Low VRAM mode enabled automatically")
                 if "low_vram_mode" not in st.session_state:
@@ -95,34 +91,29 @@ class BlogGeneratorApp:
                 time.sleep(0.01)
                 progress_bar.progress(i + 1)
             
-            # Clear GPU memory before loading model
+        
             self.clear_cuda_cache()
             
-            # Configure GPU acceleration based on available VRAM
             if low_vram_mode:
-                # Low VRAM configuration (4GB cards like GTX 1650)
                 gpu_config = {
                     'max_new_tokens': max_tokens,
                     'temperature': temperature,
-                    'gpu_layers': 16,  # Reduced number of layers on GPU
-                    'context_length': 1024,  # Reduced context window
-                    'batch_size': 1,  # Minimum batch size
-                    'thread_count': 4  # Control CPU thread usage
+                    'gpu_layers': 16, 
+                    'context_length': 1024, 
+                    'batch_size': 1, 
+                    'thread_count': 4  
                 }
             else:
-                # Regular configuration for higher VRAM GPUs
                 gpu_config = {
                     'max_new_tokens': max_tokens, 
                     'temperature': temperature,
-                    'gpu_layers': 32,  # Moderate number of layers to GPU
-                    'context_length': 2048  # Standard context window
+                    'gpu_layers': 32,  
+                    'context_length': 2048  
                 }
             
             if self.device == "cpu":
-                # Fall back to CPU configuration if no GPU is available
                 gpu_config.pop('gpu_layers', None)
             
-            # For smallest models, specify a smaller quantized model
             model_path = 'llama-2-7b-chat.ggmlv3.q4_K_M.bin' if low_vram_mode else 'llama-2-7b-chat.ggmlv3.q8_0.bin'
             
             llm = CTransformers(
@@ -146,13 +137,11 @@ class BlogGeneratorApp:
                 no_words=no_words
             ))
             
-            # Clear GPU memory after generating content
             self.clear_cuda_cache()
             
             return response
         except Exception as e:
             st.error(f"Error generating blog: {str(e)}")
-            # Try to clean up in case of error
             self.clear_cuda_cache()
             return None
 
@@ -196,13 +185,11 @@ class BlogGeneratorApp:
         st.markdown("""<h1 style='text-align: center; color: white;'>🚀 GPU-Accelerated AI Content Generator</h1>""", unsafe_allow_html=True)
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         
-        # Display GPU information if available
         self.display_gpu_info()
         
         with st.sidebar:
             st.header("🧠 Blog Generation Settings")
             
-            # VRAM optimization settings
             if self.device == "cuda":
                 low_vram_mode = st.checkbox("Low VRAM Mode (4GB GPUs)", 
                                            value=st.session_state.get("low_vram_mode", False),
@@ -242,13 +229,12 @@ class BlogGeneratorApp:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Display and update the input field with recognized text
             input_text = st.text_input("Content Topic", st.session_state["recognized_text"])
             
             if st.button("🎤 Speak Topic"):
                 recognized_text = self.speech_to_text()
-                st.session_state["recognized_text"] = recognized_text  # Update session state
-                st.experimental_rerun()  # Refresh UI to reflect new input
+                st.session_state["recognized_text"] = recognized_text  
+                st.experimental_rerun()  
         
         with col2:
             blog_styles = {'🖥️ Technical': 'technical', '💼 Professional': 'professional', '😎 Casual': 'casual', '🎓 Academic': 'academic', '🎨 Creative': 'creative'}
@@ -261,7 +247,6 @@ class BlogGeneratorApp:
             if not input_text:
                 st.warning("🚨 Please enter a topic")
             else:
-                # Capture start time for performance measurement
                 start_time = time.time()
                 
                 generated_blog = self.generate_llama_blog(
@@ -273,7 +258,6 @@ class BlogGeneratorApp:
                     low_vram_mode=low_vram_mode
                 )
                 
-                # Calculate and display generation time
                 generation_time = time.time() - start_time
                 
                 if generated_blog:
@@ -283,7 +267,6 @@ class BlogGeneratorApp:
                     st.success(f"✅ Content generated in {generation_time:.2f} seconds")
                     st.markdown(self.get_download_link(generated_blog, f"{input_text.replace(' ', '_')}_blog.txt"), unsafe_allow_html=True)
 
-        # Display memory usage after operations if on GPU
         if self.device == "cuda":
             memory_allocated = torch.cuda.memory_allocated(0) / 1024**2
             memory_total = torch.cuda.get_device_properties(0).total_memory / 1024**2
@@ -292,12 +275,10 @@ class BlogGeneratorApp:
 
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Only show visualizations if not in low VRAM mode to save resources
         if not low_vram_mode or self.device == "cpu":
             st.header("📊 Content Generation Insights")
             self.create_blog_metrics_visualization()
 
-# Run app
 def main():
     app = BlogGeneratorApp()
     app.run()
